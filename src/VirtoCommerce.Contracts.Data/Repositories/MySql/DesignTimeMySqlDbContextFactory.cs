@@ -10,7 +10,7 @@ namespace VirtoCommerce.Contracts.Data.Repositories.MySql
         {
             var builder = new DbContextOptionsBuilder<ContractMySqlDbContext>();
 
-            builder.UseMySql("server=localhost;user=root;password=virto;database=VirtoCommerce3_test1;", new MySqlServerVersion(new Version(5, 7)));
+            builder.UseMySql("server=localhost;user=root;password=virto;database=VirtoCommerce3;", new MySqlServerVersion(new Version(5, 7)));
             return new ContractMySqlDbContext(builder.Options);
         }
     }
