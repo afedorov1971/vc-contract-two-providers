@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using EntityFrameworkCore.Triggers;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +13,10 @@ using VirtoCommerce.Contracts.Core.Models.Search;
 using VirtoCommerce.Contracts.Core.Services;
 using VirtoCommerce.Contracts.Data.Handlers;
 using VirtoCommerce.Contracts.Data.Repositories;
+using VirtoCommerce.Contracts.Data.Repositories.MySql;
 using VirtoCommerce.Contracts.Data.Services;
 using VirtoCommerce.Contracts.Data.Validation;
+using VirtoCommerce.Contracts.Web.Extensions;
 using VirtoCommerce.Platform.Core.Bus;
 using VirtoCommerce.Platform.Core.DynamicProperties;
 using VirtoCommerce.Platform.Core.GenericCrud;
@@ -31,12 +34,21 @@ namespace VirtoCommerce.Contracts.Web
         public void Initialize(IServiceCollection serviceCollection)
         {
             // Initialize database
-            var connectionString = Configuration.GetConnectionString(ModuleInfo.Id) ??
-                                   Configuration.GetConnectionString("VirtoCommerce");
+            var connectionString = Configuration.GetModuleConnectionString(ModuleInfo.Id);
+            var useMySqlProvider = Configuration.UseMySqlProviderForModule(ModuleInfo.Id);
 
-            serviceCollection.AddDbContext<ContractDbContext>(options => options.UseSqlServer(connectionString));
-
-            serviceCollection.AddTransient<IContractRepository, ContractRepository>();
+            if (useMySqlProvider)
+            {
+                serviceCollection.AddDbContext<ContractMySqlDbContext>(options =>
+                    options.UseMySql(connectionString, new MySqlServerVersion(new Version(5, 7))));
+                serviceCollection.AddTransient<IContractRepository, ContractMySqlRepository>();
+            }
+            else
+            {
+                serviceCollection.AddDbContext<ContractDbContext>(options => options.UseSqlServer(connectionString));
+                serviceCollection.AddTransient<IContractRepository, ContractRepository>();
+            }
+            
             serviceCollection.AddTransient<Func<IContractRepository>>(provider => () => provider.CreateScope().ServiceProvider.GetService<IContractRepository>());
 
             // Register services
@@ -78,7 +90,12 @@ namespace VirtoCommerce.Contracts.Web
 
             // Apply migrations
             using var serviceScope = serviceProvider.CreateScope();
-            using var dbContext = serviceScope.ServiceProvider.GetRequiredService<ContractDbContext>();
+
+            var useMySqlProvider = Configuration.UseMySqlProviderForModule(ModuleInfo.Id);
+
+            using DbContextWithTriggers dbContext = useMySqlProvider ? serviceScope.ServiceProvider.GetRequiredService<ContractMySqlDbContext>() :
+                serviceScope.ServiceProvider.GetRequiredService<ContractDbContext>();
+
             dbContext.Database.Migrate();
 
             var inProcessBus = appBuilder.ApplicationServices.GetService<IHandlerRegistrar>();
