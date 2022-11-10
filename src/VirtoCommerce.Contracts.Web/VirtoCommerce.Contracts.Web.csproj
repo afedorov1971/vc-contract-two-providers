@@ -19,4 +19,8 @@
     <Folder Include="Scripts\widgets\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="6.0.0" />
+  </ItemGroup>
+
 </Project>
